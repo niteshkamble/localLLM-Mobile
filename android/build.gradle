@@ -19,3 +19,9 @@ buildscript {
 }
 
 apply plugin: "com.facebook.react.rootproject"
+
+// Set properties for all subprojects to avoid node execution
+allprojects {
+    project.ext.REACT_NATIVE_NODE_MODULES_DIR = file("${rootProject.projectDir}/../node_modules/react-native")
+    project.ext.REACT_NATIVE_WORKLETS_NODE_MODULES_DIR = file("${rootProject.projectDir}/../node_modules/react-native-worklets")
+}

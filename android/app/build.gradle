@@ -3,10 +3,66 @@ apply plugin: "org.jetbrains.kotlin.android"
 apply plugin: "com.facebook.react"
 
 /**
+ * Find Node.js executable dynamically
+ */
+def findNodeExecutable() {
+    // First, try NODE_BINARY environment variable
+    def nodeBinary = System.getenv("NODE_BINARY")
+    if (nodeBinary != null && new File(nodeBinary).exists()) {
+        return nodeBinary
+    }
+    
+    // Try nodeExecutable from gradle.properties
+    if (project.hasProperty("nodeExecutable")) {
+        def nodePath = project.property("nodeExecutable")
+        if (new File(nodePath).exists()) {
+            return nodePath
+        }
+    }
+    
+    // Dynamically discover Node.js versions from nvm
+    def homeDir = System.getProperty("user.home")
+    def nvmNodeDir = new File("${homeDir}/.nvm/versions/node")
+    if (nvmNodeDir.exists() && nvmNodeDir.isDirectory()) {
+        // Get all version directories and sort them (newest first)
+        def versions = nvmNodeDir.listFiles()
+            .findAll { it.isDirectory() && it.name.startsWith("v") }
+            .sort { a, b -> b.name.compareTo(a.name) } // Sort descending (newest first)
+        
+        for (versionDir in versions) {
+            def nodePath = new File(versionDir, "bin/node")
+            if (nodePath.exists() && nodePath.canExecute()) {
+                return nodePath.absolutePath
+            }
+        }
+    }
+    
+    // Try to find node in PATH using 'which' command
+    try {
+        def process = "which node".execute()
+        process.waitFor()
+        if (process.exitValue() == 0) {
+            def nodePath = process.text.trim()
+            if (new File(nodePath).exists()) {
+                return nodePath
+            }
+        }
+    } catch (Exception e) {
+        // Ignore
+    }
+    
+    // Fallback to 'node' (hopefully in PATH)
+    return "node"
+}
+
+def nodeExecutable = findNodeExecutable()
+
+/**
  * This is the configuration block to customize your React Native Android app.
  * By default you don't need to apply any configuration, just uncomment the lines you need.
  */
 react {
+    nodeExecutableAndArgs = [nodeExecutable]
     /* Folders */
     //   The root of your project, i.e. where "package.json" lives. Default is '../..'
     // root = file("../../")
@@ -71,6 +127,10 @@ def enableProguardInReleaseBuilds = false
  * this variant is about 6MiB larger per architecture than default.
  */
 def jscFlavor = 'io.github.react-native-community:jsc-android:2026004.+'
+
+// Set properties to avoid node execution in react-native-gesture-handler and react-native-reanimated
+project.ext.REACT_NATIVE_NODE_MODULES_DIR = file("../../node_modules/react-native")
+project.ext.REACT_NATIVE_WORKLETS_NODE_MODULES_DIR = file("../../node_modules/react-native-worklets")
 
 android {
     ndkVersion rootProject.ext.ndkVersion

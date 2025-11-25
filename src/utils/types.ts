@@ -34,5 +34,16 @@ export type HuggingfaceModel = {
 export type Chat = {
     id: string;
     title: string;
+    modelId: string; // Model ID used for this chat
     createdAt: string;
+    updatedAt: string;
+    messageCount?: number; // Optional: number of messages in the chat
+}
+
+export type ChatMessage = {
+    id: string;
+    chatId: string;
+    role: 'user' | 'assistant' | 'system';
+    content: string;
+    timestamp: string;
 }

@@ -88,6 +88,29 @@ APP_BASE_NAME=${0##*/}
 # Discard cd standard output in case $CDPATH is set (https://github.com/gradle/gradle/issues/25036)
 APP_HOME=$( cd -P "${APP_HOME:-./}" > /dev/null && printf '%s\n' "$PWD" ) || exit
 
+# Set up Node.js path for Gradle builds
+# This ensures node is available when build scripts are evaluated
+if [ -f "$APP_HOME/gradle.properties" ]; then
+    NODE_EXECUTABLE=$(grep "^nodeExecutable=" "$APP_HOME/gradle.properties" | cut -d'=' -f2 | tr -d '\r\n' || echo "")
+    if [ -n "$NODE_EXECUTABLE" ] && [ -f "$NODE_EXECUTABLE" ]; then
+        NODE_DIR=$(dirname "$NODE_EXECUTABLE")
+        export PATH="$NODE_DIR:$PATH"
+        export NODE_BINARY="$NODE_EXECUTABLE"
+    fi
+fi
+
+# Fallback: try to find node in nvm if not already set
+if ! command -v node >/dev/null 2>&1; then
+    if [ -d "$HOME/.nvm/versions/node" ]; then
+        # Find the newest node version
+        NODE_VERSION_DIR=$(ls -d "$HOME/.nvm/versions/node"/v* 2>/dev/null | sort -V | tail -1)
+        if [ -n "$NODE_VERSION_DIR" ] && [ -f "$NODE_VERSION_DIR/bin/node" ]; then
+            export PATH="$NODE_VERSION_DIR/bin:$PATH"
+            export NODE_BINARY="$NODE_VERSION_DIR/bin/node"
+        fi
+    fi
+fi
+
 # Use the maximum available, or set MAX_FD != -1 to use that value.
 MAX_FD=maximum
 
