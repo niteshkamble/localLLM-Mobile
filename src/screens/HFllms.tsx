@@ -1,15 +1,55 @@
-import React, { useEffect, useCallback } from 'react';
-import { View, Text, StyleSheet, ActivityIndicator, TouchableOpacity, Alert } from 'react-native';
+import React, { useEffect, useCallback, useState } from 'react';
+import { View, Text, StyleSheet, ActivityIndicator, TouchableOpacity, Alert, ScrollView, SafeAreaView } from 'react-native';
 import { FlashList } from '@shopify/flash-list';
 import { useDispatch, useSelector } from 'react-redux';
+import { useNavigation } from '@react-navigation/native';
 import { AppDispatch, RootState } from '../app/store/store';
-import { getModelsFromHuggingface } from '../app/reducers/model/hfModelSlice';
 import { downloadModel, resetDownload } from '../app/reducers/model/hfModelDownloadSlice';
-import { HuggingfaceModel } from '../utils/types';
+import { setSelectedModel, SelectedModel as SelectedModelType } from '../app/reducers/model/selectedModelSlice';
+import RNFS from 'react-native-fs';
+import axios from 'axios';
+
+// Model formats supported by the app
+const modelFormats = [
+    { label: 'Llama-3.2-1B-Instruct' },
+    { label: 'Qwen2-0.5B-Instruct' },
+    { label: 'DeepSeek-R1-Distill-Qwen-1.5B' },
+    { label: 'SmolLM2-1.7B-Instruct' },
+];
+
+// Mapping from user-friendly model names to Hugging Face repository paths
+const HF_TO_GGUF: { [key: string]: string } = {
+    'Llama-3.2-1B-Instruct': 'medmekk/Llama-3.2-1B-Instruct.GGUF',
+    'DeepSeek-R1-Distill-Qwen-1.5B': 'medmekk/DeepSeek-R1-Distill-Qwen-1.5B.GGUF',
+    'Qwen2-0.5B-Instruct': 'medmekk/Qwen2.5-0.5B-Instruct.GGUF',
+    'SmolLM2-1.7B-Instruct': 'medmekk/SmolLM2-1.7B-Instruct.GGUF',
+};
+
+// Type for GGUF file
+type GGUFFile = {
+    rfilename: string;
+    size?: number;
+};
+
+// Type for downloaded model
+type DownloadedModel = {
+    fileName: string;
+    filePath: string;
+    size: number;
+    modelFormat?: string;
+};
 
 const HFllms = () => {
     const dispatch = useDispatch<AppDispatch>();
-    const { huggingfaceModels, isLoading, error } = useSelector((state: RootState) => state.hfModel);
+    const navigation = useNavigation();
+    const [selectedModelFormat, setSelectedModelFormat] = useState<string>('');
+    const [availableGGUFs, setAvailableGGUFs] = useState<string[]>([]);
+    const [isLoadingGGUFs, setIsLoadingGGUFs] = useState<boolean>(false);
+    const [downloadedModels, setDownloadedModels] = useState<DownloadedModel[]>([]);
+    const [isLoadingDownloaded, setIsLoadingDownloaded] = useState<boolean>(true);
+    
+    // Get selected model from Redux
+    const selectedModel = useSelector((state: RootState) => state.selectedModel.selectedModel);
     
     // Use selective selector to prevent unnecessary re-renders
     const downloadState = useSelector((state: RootState) => state.hfModelDownload, (left, right) => {
@@ -26,8 +66,120 @@ const HFllms = () => {
         );
     });
 
+    // Fetch available GGUF files from Hugging Face
+    const fetchAvailableGGUFs = async (modelFormat: string) => {
+        if (!modelFormat) {
+            Alert.alert('Error', 'Please select a model format first.');
+            return;
+        }
+
+        setIsLoadingGGUFs(true);
+        try {
+            const repoPath = HF_TO_GGUF[modelFormat];
+            if (!repoPath) {
+                throw new Error(
+                    `No repository mapping found for model format: ${modelFormat}`,
+                );
+            }
+
+            const response = await axios.get(
+                `https://huggingface.co/api/models/${repoPath}`,
+            );
+
+            if (!response.data?.siblings) {
+                throw new Error('Invalid API response format');
+            }
+
+            const files = response.data.siblings.filter((file: GGUFFile) =>
+                file.rfilename.endsWith('.gguf'),
+            );
+
+            setAvailableGGUFs(files.map((file: GGUFFile) => file.rfilename));
+        } catch (error) {
+            const errorMessage =
+                error instanceof Error ? error.message : 'Failed to fetch .gguf files';
+            Alert.alert('Error', errorMessage);
+            setAvailableGGUFs([]);
+        } finally {
+            setIsLoadingGGUFs(false);
+        }
+    };
+
+    // Load downloaded models from file system
+    const loadDownloadedModels = useCallback(async () => {
+        try {
+            setIsLoadingDownloaded(true);
+            const documentPath = RNFS.DocumentDirectoryPath;
+            const files = await RNFS.readDir(documentPath);
+            
+            const ggufFiles: DownloadedModel[] = [];
+            
+            for (const file of files) {
+                if (file.name.endsWith('.gguf') && file.size > 0) {
+                    // Try to match with model format
+                    let modelFormat: string | undefined;
+                    for (const [format, repoPath] of Object.entries(HF_TO_GGUF)) {
+                        if (file.name.toLowerCase().includes(format.toLowerCase().replace(/-/g, '').substring(0, 5))) {
+                            modelFormat = format;
+                            break;
+                        }
+                    }
+                    
+                    ggufFiles.push({
+                        fileName: file.name,
+                        filePath: file.path,
+                        size: file.size,
+                        modelFormat,
+                    });
+                }
+            }
+            
+            setDownloadedModels(ggufFiles);
+        } catch (error) {
+            console.error('Error loading downloaded models:', error);
+            setDownloadedModels([]);
+        } finally {
+            setIsLoadingDownloaded(false);
+        }
+    }, []);
+
+    // Load downloaded models on mount and after download completes
     useEffect(() => {
-        dispatch(getModelsFromHuggingface());
+        loadDownloadedModels();
+    }, [loadDownloadedModels]);
+
+    // Reload downloaded models when download completes
+    useEffect(() => {
+        if (!downloadState.isDownloading && downloadState.progress === 100 && !downloadState.error) {
+            // Download completed, reload the list
+            setTimeout(() => {
+                loadDownloadedModels();
+            }, 500);
+        }
+    }, [downloadState.isDownloading, downloadState.progress, downloadState.error, loadDownloadedModels]);
+
+    // Handle model format selection
+    const handleModelFormatSelect = (format: string) => {
+        setSelectedModelFormat(format);
+        setAvailableGGUFs([]); // Clear previous GGUF files
+        fetchAvailableGGUFs(format);
+    };
+
+    // Handle navigation to Home
+    const handleNavigateToHome = () => {
+        navigation.navigate('Home' as never);
+    };
+
+    // Handle model selection
+    const handleSelectModel = useCallback((model: DownloadedModel) => {
+        const selectedModelData: SelectedModelType = {
+            fileName: model.fileName,
+            filePath: model.filePath,
+            size: model.size,
+            modelFormat: model.modelFormat,
+        };
+        dispatch(setSelectedModel(selectedModelData));
+        Alert.alert('Model Selected', `Selected model: ${model.fileName}\nPath: ${model.filePath}`);
     }, [dispatch]);
 
     // Handle download completion/error
@@ -97,25 +249,56 @@ const HFllms = () => {
         return `${hours}h ${minutes}m`;
     }, []);
 
-    const handleDownload = useCallback((model: HuggingfaceModel) => {
+    const handleDownload = useCallback((ggufFileName: string) => {
+        if (!selectedModelFormat) {
+            Alert.alert('Error', 'Please select a model format first.');
+            return;
+        }
+
         if (downloadState.isDownloading) {
             Alert.alert('Download in Progress', 'Please wait for the current download to complete.');
             return;
         }
-        dispatch(downloadModel(model));
-    }, [downloadState.isDownloading, dispatch]);
 
-    const isModelDownloading = useCallback((modelId: string): boolean => {
-        return downloadState.isDownloading && downloadState.currentModel?.id === modelId;
-    }, [downloadState.isDownloading, downloadState.currentModel?.id]);
+        const repoPath = HF_TO_GGUF[selectedModelFormat];
+        if (!repoPath) {
+            Alert.alert('Error', 'Invalid model format selected.');
+            return;
+        }
 
-    // Memoize keyExtractor - must be before any conditional returns
-    const keyExtractor = useCallback((item: HuggingfaceModel) => item.id, []);
+        // Create a model object compatible with the download slice
+        // The download URL will be: https://huggingface.co/{repoPath}/resolve/main/{ggufFileName}
+        const downloadUrl = `https://huggingface.co/${repoPath}/resolve/main/${ggufFileName}`;
+        
+        const modelForDownload = {
+            id: `${repoPath}-${ggufFileName}`,
+            modelId: `${selectedModelFormat}-${ggufFileName}`,
+            createdAt: new Date().toISOString(),
+            downloads: 0,
+            library_name: 'gguf',
+            likes: 0,
+            pipeline_tag: 'text-generation',
+            private: false,
+            tags: ['gguf', selectedModelFormat],
+            downloadUrl: downloadUrl,
+            fileName: ggufFileName,
+            repoPath: repoPath,
+        };
 
-    // Memoize renderItem to prevent unnecessary re-renders
-    const renderItem = useCallback(({ item }: { item: HuggingfaceModel }) => {
-        const isDownloading = isModelDownloading(item.id);
-        const isCurrentDownload = downloadState.currentModel?.id === item.id;
+        dispatch(downloadModel(modelForDownload as any));
+    }, [selectedModelFormat, downloadState.isDownloading, dispatch]);
+
+    const isModelDownloading = useCallback((fileName: string): boolean => {
+        return downloadState.isDownloading && (downloadState.currentModel?.modelId?.includes(fileName) ?? false);
+    }, [downloadState.isDownloading, downloadState.currentModel?.modelId]);
+
+    // Memoize keyExtractor for GGUF files
+    const keyExtractor = useCallback((item: string) => item, []);
+
+    // Memoize renderItem for GGUF files
+    const renderGGUFItem = useCallback(({ item }: { item: string }) => {
+        const isDownloading = isModelDownloading(item);
+        const isCurrentDownload = downloadState.currentModel?.modelId?.includes(item);
 
         return (
             <TouchableOpacity 
@@ -125,11 +308,11 @@ const HFllms = () => {
             >
                 <View style={styles.itemHeader}>
                     <View style={styles.itemHeaderLeft}>
-                        <Text style={styles.modelId} numberOfLines={1}>
-                            {item.modelId}
+                        <Text style={styles.modelId} numberOfLines={2}>
+                            {item}
                         </Text>
                         <Text style={styles.id} numberOfLines={1}>
-                            ID: {item.id}
+                            Format: {selectedModelFormat}
                         </Text>
                     </View>
                     {isDownloading && (
@@ -171,40 +354,10 @@ const HFllms = () => {
                     </View>
                 )}
 
-                <View style={styles.statsContainer}>
-                    <View style={styles.statItem}>
-                        <Text style={styles.statLabel}>Downloads</Text>
-                        <Text style={styles.statValue}>{formatNumber(item.downloads)}</Text>
-                    </View>
-                    <View style={styles.statItem}>
-                        <Text style={styles.statLabel}>Likes</Text>
-                        <Text style={styles.statValue}>{formatNumber(item.likes)}</Text>
-                    </View>
-                    <View style={styles.statItem}>
-                        <Text style={styles.statLabel}>Library</Text>
-                        <Text style={styles.statValue} numberOfLines={1}>
-                            {item.library_name || 'N/A'}
-                        </Text>
-                    </View>
-                </View>
-
-                {item.tags && item.tags.length > 0 && (
-                    <View style={styles.tagsContainer}>
-                        {item.tags.slice(0, 5).map((tag, index) => (
-                            <View key={index} style={styles.tag}>
-                                <Text style={styles.tagText}>{tag}</Text>
-                            </View>
-                        ))}
-                        {item.tags.length > 5 && (
-                            <Text style={styles.moreTags}>+{item.tags.length - 5}</Text>
-                        )}
-                    </View>
-                )}
-
                 <View style={styles.footer}>
-                    <Text style={styles.createdAt}>
-                        Created: {formatDate(item.createdAt)}
-                    </Text>
+                    <View style={styles.tag}>
+                        <Text style={styles.tagText}>GGUF</Text>
+                    </View>
                     {!isDownloading && (
                         <TouchableOpacity
                             style={styles.downloadButton}
@@ -216,53 +369,185 @@ const HFllms = () => {
                 </View>
             </TouchableOpacity>
         );
-    }, [downloadState, formatDate, formatNumber, formatBytes, formatTime, handleDownload, isModelDownloading]);
+    }, [selectedModelFormat, downloadState, formatBytes, formatTime, handleDownload, isModelDownloading]);
 
-    if (isLoading) {
+    // Render downloaded model item
+    const renderDownloadedModel = useCallback(({ item }: { item: DownloadedModel }) => {
+        const isSelected = selectedModel?.filePath === item.filePath;
+        
         return (
-            <View style={styles.centerContainer}>
-                <ActivityIndicator size="large" color="#007AFF" />
-                <Text style={styles.loadingText}>Loading models...</Text>
-            </View>
+            <TouchableOpacity
+                style={[
+                    styles.downloadedModelContainer,
+                    isSelected && styles.downloadedModelContainerSelected
+                ]}
+                onPress={() => handleSelectModel(item)}
+                activeOpacity={0.7}
+            >
+                <View style={styles.downloadedModelHeader}>
+                    <View style={styles.downloadedModelInfo}>
+                        <Text style={[
+                            styles.downloadedModelName,
+                            isSelected && styles.downloadedModelNameSelected
+                        ]} numberOfLines={1}>
+                            {item.fileName}
+                        </Text>
+                        {item.modelFormat && (
+                            <Text style={styles.downloadedModelFormat}>
+                                {item.modelFormat}
+                            </Text>
+                        )}
+                        <Text style={styles.downloadedModelSize}>
+                            {formatBytes(item.size)}
+                        </Text>
+                    </View>
+                    <View style={[
+                        styles.downloadedBadge,
+                        isSelected && styles.downloadedBadgeSelected
+                    ]}>
+                        <Text style={styles.downloadedBadgeText}>
+                            {isSelected ? '✓ Selected' : '✓ Downloaded'}
+                        </Text>
+                    </View>
+                </View>
+            </TouchableOpacity>
         );
-    }
-
-    if (error) {
-        return (
-            <View style={styles.centerContainer}>
-                <Text style={styles.errorText}>Error: {error}</Text>
-                <TouchableOpacity
-                    style={styles.retryButton}
-                    onPress={() => dispatch(getModelsFromHuggingface())}
-                >
-                    <Text style={styles.retryButtonText}>Retry</Text>
-                </TouchableOpacity>
-            </View>
-        );
-    }
-
-    if (!huggingfaceModels || huggingfaceModels.length === 0) {
-        return (
-            <View style={styles.centerContainer}>
-                <Text style={styles.emptyText}>No models found</Text>
-            </View>
-        );
-    }
+    }, [formatBytes, selectedModel, handleSelectModel]);
 
     return (
-        <View style={styles.container}>
-            <FlashList
-                data={huggingfaceModels}
-                renderItem={renderItem}
-                keyExtractor={keyExtractor}
-                contentContainerStyle={styles.listContent}
-                {...({ estimatedItemSize: 200 } as any)}
-                removeClippedSubviews={true} // Optimize for large lists
-                maxToRenderPerBatch={10} // Render fewer items per batch
-                updateCellsBatchingPeriod={100} // Batch updates
-                windowSize={10} // Reduce window size
-            />
-        </View>
+        <SafeAreaView style={styles.container}>
+            <View style={styles.header}>
+                <View style={styles.headerTop}>
+                    <View style={styles.headerTextContainer}>
+                        <Text style={styles.headerTitle}>Download GGUF Models</Text>
+                        <Text style={styles.headerSubtitle}>Select a model format to view available GGUF files</Text>
+                        {selectedModel && (
+                            <View style={styles.selectedModelInfo}>
+                                <Text style={styles.selectedModelLabel}>Selected Model:</Text>
+                                <Text style={styles.selectedModelName} numberOfLines={1}>
+                                    {selectedModel.fileName}
+                                </Text>
+                            </View>
+                        )}
+                    </View>
+                    <TouchableOpacity
+                        style={[
+                            styles.navigateButton,
+                            downloadedModels.length === 0 && styles.navigateButtonDisabled
+                        ]}
+                        onPress={handleNavigateToHome}
+                        disabled={downloadedModels.length === 0}
+                    >
+                        <Text style={[
+                            styles.navigateButtonText,
+                            downloadedModels.length === 0 && styles.navigateButtonTextDisabled
+                        ]}>
+                            Go to Home
+                        </Text>
+                    </TouchableOpacity>
+                </View>
+            </View>
+
+            {/* Downloaded Models Section */}
+            {isLoadingDownloaded ? (
+                <View style={styles.centerContainer}>
+                    <ActivityIndicator size="small" color="#007AFF" />
+                    <Text style={styles.loadingText}>Loading downloaded models...</Text>
+                </View>
+            ) : downloadedModels.length > 0 && (
+                <View style={styles.downloadedModelsSection}>
+                    <Text style={styles.sectionTitle}>
+                        Downloaded Models ({downloadedModels.length}):
+                    </Text>
+                    <FlashList
+                        data={downloadedModels}
+                        renderItem={renderDownloadedModel}
+                        keyExtractor={(item: DownloadedModel) => item.fileName}
+                        contentContainerStyle={styles.listContent}
+                        {...({ estimatedItemSize: 100 } as any)}
+                        horizontal
+                        showsHorizontalScrollIndicator={false}
+                    />
+                </View>
+            )}
+
+            {/* Model Format Selection */}
+            <View style={styles.modelFormatContainer}>
+                <Text style={styles.sectionTitle}>Select Model Format:</Text>
+                <ScrollView 
+                    horizontal 
+                    showsHorizontalScrollIndicator={false}
+                    style={styles.formatScrollView}
+                    contentContainerStyle={styles.formatScrollContent}
+                >
+                    {modelFormats.map((format) => (
+                        <TouchableOpacity
+                            key={format.label}
+                            style={[
+                                styles.formatButton,
+                                selectedModelFormat === format.label && styles.formatButtonSelected
+                            ]}
+                            onPress={() => handleModelFormatSelect(format.label)}
+                        >
+                            <Text style={[
+                                styles.formatButtonText,
+                                selectedModelFormat === format.label && styles.formatButtonTextSelected
+                            ]}>
+                                {format.label}
+                            </Text>
+                        </TouchableOpacity>
+                    ))}
+                </ScrollView>
+            </View>
+
+            {/* Loading State for GGUF Files */}
+            {isLoadingGGUFs && (
+                <View style={styles.centerContainer}>
+                    <ActivityIndicator size="large" color="#007AFF" />
+                    <Text style={styles.loadingText}>Loading GGUF files...</Text>
+                </View>
+            )}
+
+            {/* GGUF Files List */}
+            {!isLoadingGGUFs && selectedModelFormat && availableGGUFs.length > 0 && (
+                <View style={styles.ggufListContainer}>
+                    <Text style={styles.sectionTitle}>
+                        Available GGUF Files ({availableGGUFs.length}):
+                    </Text>
+                    <FlashList
+                        data={availableGGUFs}
+                        renderItem={renderGGUFItem}
+                        keyExtractor={keyExtractor}
+                        contentContainerStyle={styles.listContent}
+                        {...({ estimatedItemSize: 150 } as any)}
+                        removeClippedSubviews={true}
+                        maxToRenderPerBatch={10}
+                        updateCellsBatchingPeriod={100}
+                        windowSize={10}
+                    />
+                </View>
+            )}
+
+            {/* Empty State */}
+            {!isLoadingGGUFs && selectedModelFormat && availableGGUFs.length === 0 && (
+                <View style={styles.centerContainer}>
+                    <Text style={styles.emptyText}>No GGUF files found for {selectedModelFormat}</Text>
+                    <TouchableOpacity
+                        style={styles.retryButton}
+                        onPress={() => fetchAvailableGGUFs(selectedModelFormat)}
+                    >
+                        <Text style={styles.retryButtonText}>Retry</Text>
+                    </TouchableOpacity>
+                </View>
+            )}
+
+            {/* Initial State */}
+            {!selectedModelFormat && !isLoadingGGUFs && (
+                <View style={styles.centerContainer}>
+                    <Text style={styles.emptyText}>Please select a model format above</Text>
+                </View>
+            )}
+        </SafeAreaView>
     );
 };
 
@@ -271,8 +556,190 @@ const styles = StyleSheet.create({
         flex: 1,
         backgroundColor: '#f5f5f5',
     },
-    listContent: {
+    header: {
         padding: 16,
+        backgroundColor: '#fff',
+        borderBottomWidth: 1,
+        borderBottomColor: '#e0e0e0',
+    },
+    headerTop: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'flex-start',
+    },
+    headerTextContainer: {
+        flex: 1,
+        marginRight: 12,
+    },
+    headerTitle: {
+        fontSize: 24,
+        fontWeight: 'bold',
+        color: '#000',
+        marginBottom: 4,
+    },
+    headerSubtitle: {
+        fontSize: 14,
+        color: '#666',
+        marginBottom: 8,
+    },
+    selectedModelInfo: {
+        marginTop: 8,
+        padding: 8,
+        backgroundColor: '#e3f2fd',
+        borderRadius: 6,
+        borderLeftWidth: 3,
+        borderLeftColor: '#1976d2',
+    },
+    selectedModelLabel: {
+        fontSize: 11,
+        color: '#666',
+        fontWeight: '600',
+        marginBottom: 2,
+        textTransform: 'uppercase',
+    },
+    selectedModelName: {
+        fontSize: 13,
+        color: '#1976d2',
+        fontWeight: '600',
+    },
+    navigateButton: {
+        backgroundColor: '#007AFF',
+        paddingHorizontal: 16,
+        paddingVertical: 10,
+        borderRadius: 8,
+        alignSelf: 'flex-start',
+    },
+    navigateButtonDisabled: {
+        backgroundColor: '#ccc',
+        opacity: 0.6,
+    },
+    navigateButtonText: {
+        color: '#fff',
+        fontSize: 14,
+        fontWeight: '600',
+    },
+    navigateButtonTextDisabled: {
+        color: '#999',
+    },
+    downloadedModelsSection: {
+        backgroundColor: '#fff',
+        paddingVertical: 16,
+        paddingHorizontal: 16,
+        borderBottomWidth: 1,
+        borderBottomColor: '#e0e0e0',
+        maxHeight: 200,
+    },
+    downloadedModelContainer: {
+        backgroundColor: '#f0f8ff',
+        borderRadius: 12,
+        padding: 12,
+        marginRight: 12,
+        minWidth: 200,
+        borderWidth: 1,
+        borderColor: '#007AFF',
+    },
+    downloadedModelContainerSelected: {
+        backgroundColor: '#e3f2fd',
+        borderWidth: 2,
+        borderColor: '#1976d2',
+        shadowColor: '#007AFF',
+        shadowOffset: {
+            width: 0,
+            height: 2,
+        },
+        shadowOpacity: 0.3,
+        shadowRadius: 4,
+        elevation: 5,
+    },
+    downloadedModelHeader: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'flex-start',
+    },
+    downloadedModelInfo: {
+        flex: 1,
+        marginRight: 8,
+    },
+    downloadedModelName: {
+        fontSize: 14,
+        fontWeight: '600',
+        color: '#000',
+        marginBottom: 4,
+    },
+    downloadedModelNameSelected: {
+        color: '#1976d2',
+        fontWeight: '700',
+    },
+    downloadedModelFormat: {
+        fontSize: 12,
+        color: '#007AFF',
+        marginBottom: 4,
+    },
+    downloadedModelSize: {
+        fontSize: 11,
+        color: '#666',
+    },
+    downloadedBadge: {
+        backgroundColor: '#4CAF50',
+        paddingHorizontal: 8,
+        paddingVertical: 4,
+        borderRadius: 12,
+    },
+    downloadedBadgeSelected: {
+        backgroundColor: '#1976d2',
+    },
+    downloadedBadgeText: {
+        color: '#fff',
+        fontSize: 10,
+        fontWeight: '600',
+    },
+    modelFormatContainer: {
+        backgroundColor: '#fff',
+        paddingVertical: 16,
+        paddingHorizontal: 16,
+        borderBottomWidth: 1,
+        borderBottomColor: '#e0e0e0',
+    },
+    sectionTitle: {
+        fontSize: 16,
+        fontWeight: '600',
+        color: '#000',
+        marginBottom: 12,
+    },
+    formatScrollView: {
+        maxHeight: 60,
+    },
+    formatScrollContent: {
+        paddingRight: 16,
+    },
+    formatButton: {
+        paddingHorizontal: 16,
+        paddingVertical: 8,
+        borderRadius: 20,
+        backgroundColor: '#e3f2fd',
+        marginRight: 8,
+        borderWidth: 2,
+        borderColor: 'transparent',
+    },
+    formatButtonSelected: {
+        backgroundColor: '#007AFF',
+        borderColor: '#0051D5',
+    },
+    formatButtonText: {
+        fontSize: 14,
+        fontWeight: '600',
+        color: '#1976d2',
+    },
+    formatButtonTextSelected: {
+        color: '#fff',
+    },
+    ggufListContainer: {
+        flex: 1,
+        paddingHorizontal: 16,
+        paddingTop: 16,
+    },
+    listContent: {
+        paddingBottom: 16,
     },
     itemContainer: {
         backgroundColor: '#fff',
@@ -447,6 +914,7 @@ const styles = StyleSheet.create({
         justifyContent: 'space-between',
         alignItems: 'center',
         marginTop: 8,
+        gap: 8,
     },
     downloadButton: {
         backgroundColor: '#007AFF',

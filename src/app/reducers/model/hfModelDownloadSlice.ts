@@ -57,8 +57,12 @@ export const downloadModel = createAsyncThunk(
             tracker.lastReduxUpdate = null;
             tracker.lastSpeedUpdate = null;
 
-            // Use default URL for all downloads for now
-            const defaultUrl = 'https://huggingface.co/TheBloke/TinyLlama-1.1B-Chat-v1.0-GGUF/resolve/main/tinyllama-1.1b-chat-v1.0.Q4_K_M.gguf';
+            // Require downloadUrl from model - only download supported models
+            const downloadUrl = (model as any).downloadUrl;
+            
+            if (!downloadUrl) {
+                throw new Error('Download URL is required. Please select a supported model.');
+            }
             
             const result = await downloadModelAPI(model.id, model.modelId, (progress: DownloadProgress) => {
                 const currentTime = Date.now();
@@ -120,7 +124,7 @@ export const downloadModel = createAsyncThunk(
                         time: currentTime,
                     };
                 }
-            }, defaultUrl);
+            }, downloadUrl);
 
             // Clean up tracker on completion
             downloadTrackers.delete(downloadId);
