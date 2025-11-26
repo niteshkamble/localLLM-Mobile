@@ -192,10 +192,6 @@ localLLM/
 - For iOS: `cd ios && pod install`
 - Clear Metro cache: `yarn start --reset-cache`
 
-## License
-
-[Add your license here]
-
 ## Contributing
 
 This is a test repository. Contributions and feedback welcome!
