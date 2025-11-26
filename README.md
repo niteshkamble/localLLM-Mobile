@@ -4,6 +4,13 @@
 
 A React Native application for downloading Llama models from Hugging Face and running them locally on mobile devices using **llama.rn**. This project enables on-device AI inference without requiring internet connectivity after model download.
 
+## Screenshots
+
+<div align="center">
+  <img src="demo/models.jpeg" alt="Model Download Screen" width="200" />
+  <img src="demo/chat.jpeg" alt="Chat Interface" width="200" />
+</div>
+
 ## About
 
 This app allows users to:
@@ -96,6 +103,9 @@ yarn ios
 ## How to Use
 
 ### 1. Download Models
+
+<img src="demo/models.jpeg" alt="Model Download Screen" width="200" />
+
 - Open the app (starts on download screen)
 - Select a model format (Llama-3.2-1B-Instruct, Qwen2-0.5B-Instruct, etc.)
 - Browse available GGUF files
@@ -112,6 +122,9 @@ yarn ios
 - Wait for "Model Loaded" confirmation
 
 ### 4. Chat
+
+<img src="demo/chat.jpeg" alt="Chat Interface" width="200" />
+
 - Type your message in the input field
 - Send message to start conversation
 - View progress indicator during generation
