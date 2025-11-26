@@ -1,97 +1,201 @@
-This is a new [**React Native**](https://reactnative.dev) project, bootstrapped using [`@react-native-community/cli`](https://github.com/react-native-community/cli).
+# LocalLLM - React Native App
 
-# Getting Started
+**Status: 🚧 In Progress / Test Repository**
 
-> **Note**: Make sure you have completed the [Set Up Your Environment](https://reactnative.dev/docs/set-up-your-environment) guide before proceeding.
+A React Native application for downloading Llama models from Hugging Face and running them locally on mobile devices using **llama.rn**. This project enables on-device AI inference without requiring internet connectivity after model download.
 
-## Step 1: Start Metro
+## About
 
-First, you will need to run **Metro**, the JavaScript build tool for React Native.
+This app allows users to:
+- Download Llama models in GGUF format directly from Hugging Face
+- Use downloaded models with **llama.rn** library for local inference
+- Load and run models locally on Android/iOS devices
+- Chat with AI models with full conversation context
+- Manage multiple models and chat sessions
 
-To start the Metro dev server, run the following command from the root of your React Native project:
+## Tech Stack
 
-```sh
-# Using npm
-npm start
+### Core Framework
+- **React Native** `0.82.1` - Mobile app framework
+- **React** `19.1.1` - UI library
+- **TypeScript** `5.8.3` - Type safety
 
-# OR using Yarn
+### State Management
+- **Redux Toolkit** `2.10.1` - State management
+- **React Redux** `9.2.0` - React bindings for Redux
+
+### LLM Integration
+- **llama.rn** `0.9.0-rc.2` - React Native binding for llama.cpp
+- Downloads Llama models from Hugging Face
+- Uses llama.rn to load and run GGUF format models
+- CPU and GPU inference (with fallback to CPU)
+
+### Navigation
+- **@react-navigation/native** `7.1.19` - Navigation library
+- **@react-navigation/drawer** `7.7.2` - Drawer navigation
+
+### UI Components
+- **@shopify/flash-list** `2.2.0` - High-performance list component
+- **react-native-gesture-handler** `2.28.0` - Gesture handling
+- **react-native-reanimated** `4.1.3` - Animations
+- **react-native-safe-area-context** `5.6.2` - Safe area handling
+
+### File System & Storage
+- **react-native-fs** `2.20.0` - File system operations
+- **react-native-sqlite-storage** `6.0.1` - SQLite database
+
+### Utilities
+- **axios** `1.13.2` - HTTP client for Hugging Face API
+- **patch-package** `8.0.1` - Patch npm packages
+
+## Prerequisites
+
+- **Node.js** >= 20
+- **React Native** development environment set up
+- **Android Studio** (for Android development)
+- **Xcode** (for iOS development, macOS only)
+- **Yarn** package manager
+
+## Installation
+
+1. **Clone the repository**
+   ```bash
+   git clone <repository-url>
+   cd localLLM
+   ```
+
+2. **Install dependencies**
+   ```bash
+   yarn install
+   ```
+
+3. **Install iOS dependencies** (iOS only)
+   ```bash
+   cd ios
+   pod install
+   cd ..
+   ```
+
+## Running the App
+
+### Start Metro Bundler
+```bash
 yarn start
 ```
 
-## Step 2: Build and run your app
-
-With Metro running, open a new terminal window/pane from the root of your React Native project, and use one of the following commands to build and run your Android or iOS app:
-
-### Android
-
-```sh
-# Using npm
-npm run android
-
-# OR using Yarn
+### Run on Android
+```bash
 yarn android
 ```
 
-### iOS
-
-For iOS, remember to install CocoaPods dependencies (this only needs to be run on first clone or after updating native deps).
-
-The first time you create a new project, run the Ruby bundler to install CocoaPods itself:
-
-```sh
-bundle install
-```
-
-Then, and every time you update your native dependencies, run:
-
-```sh
-bundle exec pod install
-```
-
-For more information, please visit [CocoaPods Getting Started guide](https://guides.cocoapods.org/using/getting-started.html).
-
-```sh
-# Using npm
-npm run ios
-
-# OR using Yarn
+### Run on iOS
+```bash
 yarn ios
 ```
 
-If everything is set up correctly, you should see your new app running in the Android Emulator, iOS Simulator, or your connected device.
+## How to Use
 
-This is one way to run your app — you can also build it directly from Android Studio or Xcode.
+### 1. Download Models
+- Open the app (starts on download screen)
+- Select a model format (Llama-3.2-1B-Instruct, Qwen2-0.5B-Instruct, etc.)
+- Browse available GGUF files
+- Download the desired model
 
-## Step 3: Modify your app
+### 2. Select Model
+- Tap on a downloaded model to select it
+- Selected model will be highlighted
+- Model path is stored in Redux state
 
-Now that you have successfully run the app, let's make changes!
+### 3. Load Model
+- Navigate to Home screen
+- Model automatically loads when selected
+- Wait for "Model Loaded" confirmation
 
-Open `App.tsx` in your text editor of choice and make some changes. When you save, your app will automatically update and reflect these changes — this is powered by [Fast Refresh](https://reactnative.dev/docs/fast-refresh).
+### 4. Chat
+- Type your message in the input field
+- Send message to start conversation
+- View progress indicator during generation
+- Conversation history is maintained in Redux
 
-When you want to forcefully reload, for example to reset the state of your app, you can perform a full reload:
+## Project Structure
 
-- **Android**: Press the <kbd>R</kbd> key twice or select **"Reload"** from the **Dev Menu**, accessed via <kbd>Ctrl</kbd> + <kbd>M</kbd> (Windows/Linux) or <kbd>Cmd ⌘</kbd> + <kbd>M</kbd> (macOS).
-- **iOS**: Press <kbd>R</kbd> in iOS Simulator.
+```
+localLLM/
+├── android/                 # Android native code
+├── ios/                     # iOS native code
+├── src/
+│   ├── app/
+│   │   ├── database/        # SQLite database operations
+│   │   ├── reducers/        # Redux slices
+│   │   │   ├── chat/        # Chat state management
+│   │   │   └── model/       # Model state management
+│   │   ├── services/        # API services
+│   │   └── store/           # Redux store configuration
+│   ├── components/          # Reusable components
+│   ├── screens/             # Screen components
+│   └── utils/               # Utility functions and types
+├── spec/                    # Native module specifications
+└── package.json
+```
 
-## Congratulations! :tada:
+## Model Format
 
-You've successfully run and modified your React Native App. :partying_face:
+- **Format**: GGUF (GPT-Generated Unified Format)
+- **Source**: Hugging Face repositories
+- **Integration**: Models downloaded from Hugging Face are used with **llama.rn** for local inference
+- **Supported Models**:
+  - Llama-3.2-1B-Instruct
+  - Qwen2-0.5B-Instruct
+  - DeepSeek-R1-Distill-Qwen-1.5B
+  - SmolLM2-1.7B-Instruct
 
-### Now what?
+## Features
 
-- If you want to add this new React Native code to an existing application, check out the [Integration guide](https://reactnative.dev/docs/integration-with-existing-apps).
-- If you're curious to learn more about React Native, check out the [docs](https://reactnative.dev/docs/getting-started).
+- ✅ Model download from Hugging Face
+- ✅ Model selection and loading
+- ✅ Chat interface with conversation history
+- ✅ Progress tracking during generation
+- ✅ Redux state management
+- ✅ SQLite database for model metadata
+- 🚧 Streaming responses (in progress)
+- 🚧 Multiple chat sessions (in progress)
+- 🚧 Context window management (in progress)
 
-# Troubleshooting
+## Known Limitations
 
-If you're having issues getting the above steps to work, see the [Troubleshooting](https://reactnative.dev/docs/troubleshooting) page.
+- **GPU Support**: OpenCL/Hexagon backends not enabled (runs on CPU)
+- **Context Window**: Fixed at 2048 tokens (no dynamic management)
+- **Streaming**: Not yet implemented (uses batch completion)
+- **Model Persistence**: Models stored in app documents directory
 
-# Learn More
+## Development Notes
 
-To learn more about React Native, take a look at the following resources:
+- This is a **test repository** and **work in progress**
+- Native module implementations are stubbed (TODO)
+- Some features may be incomplete or experimental
+- Model loading uses `llama.rn` library (check their docs for API changes)
 
-- [React Native Website](https://reactnative.dev) - learn more about React Native.
-- [Getting Started](https://reactnative.dev/docs/environment-setup) - an **overview** of React Native and how setup your environment.
-- [Learn the Basics](https://reactnative.dev/docs/getting-started) - a **guided tour** of the React Native **basics**.
-- [Blog](https://reactnative.dev/blog) - read the latest official React Native **Blog** posts.
-- [`@facebook/react-native`](https://github.com/facebook/react-native) - the Open Source; GitHub **repository** for React Native.
+## Troubleshooting
+
+### Model Loading Issues
+- Ensure model file exists in device storage
+- Check file permissions
+- Verify GGUF format compatibility
+
+### Performance
+- Models run on CPU (slower than GPU)
+- Use quantized models (Q4_K_M, Q5_K_M) for better performance
+- Larger models require more RAM
+
+### Build Issues
+- Run `yarn install` after pulling changes
+- For iOS: `cd ios && pod install`
+- Clear Metro cache: `yarn start --reset-cache`
+
+## License
+
+[Add your license here]
+
+## Contributing
+
+This is a test repository. Contributions and feedback welcome!
