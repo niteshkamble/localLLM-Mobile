@@ -1,7 +1,11 @@
 import { Text, View } from '@/components/Themed';
 import { FontAwesome } from '@expo/vector-icons';
+import type { MessageType } from '@flyerhq/react-native-chat-ui';
+import { useDrizzleStudio } from "expo-drizzle-studio-plugin";
 import { router } from 'expo-router';
-import { useEffect, useState } from 'react';
+import * as SQLite from "expo-sqlite";
+import { useEffect, useRef, useState } from 'react';
+
 import {
   FlatList,
   KeyboardAvoidingView,
@@ -10,6 +14,7 @@ import {
   TextInput,
   TouchableOpacity
 } from 'react-native';
+import { getLocalPathFromUri } from '../services/FileSys';
 import { useAppStore } from '../store/useAppStore';
 
 interface ChatMessage {
@@ -20,17 +25,40 @@ interface ChatMessage {
 }
 
 export default function ChatScreen() {
+  const db = SQLite.openDatabaseSync("models.db");
+  useDrizzleStudio(db);
   const [inputText, setInputText] = useState('');
   const selectedModel = useAppStore((state) => state.selectedModel);
   console.log('selectedModel', selectedModel);
+  const llamaContext = useAppStore((state) => state.llamaContext);
+  const initLlamaContext = useAppStore((state) => state.initLlamaContext);
+  const progress = useAppStore((state) => state.initProgress);
+  const releaseLlamaContext = useAppStore((state) => state.releaseLlamaContext);
+  const messagesRef = useRef<MessageType.Any[]>([])
+
 
   useEffect(() => {
     useAppStore.getState().getSelectedModel();
   }, []);
 
-
+  const testChat = async () => {
+    console.log('selectedModel?.filePath', selectedModel?.filePath);
+    console.log('getLocalPathFromUri(selectedModel?.filePath || "")', getLocalPathFromUri(selectedModel?.filePath || ""));
+    if (!llamaContext) {
+      await initLlamaContext(getLocalPathFromUri(selectedModel?.filePath || ''));
+    };
+    if (!llamaContext) return;
+    const response = await llamaContext.completion({
+      prompt: 'This is a conversation between user and llama, a friendly chatbot. respond in simple markdown.\n\nUser: Hello!\nLlama:',
+      n_predict: 100,
+    }, (token) => {
+      console.log('token', token);
+    });
+    console.log('response', response);
+  }
 
   const handleSend = () => {
+    testChat();
   };
 
 
@@ -40,13 +68,13 @@ export default function ChatScreen() {
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
     >
-      
+
       <FlatList
         data={[]}
-        renderItem={() => {}}
+        renderItem={() => { }}
         keyExtractor={(item) => item.id}
         contentContainerStyle={styles.messagesList}
-        inverted={false} 
+        inverted={false}
       />
 
       <View >
