@@ -1,5 +1,5 @@
+import ModelItem from '@/components/ModelItem';
 import { Text, View } from '@/components/Themed';
-import { DownloadedModel } from '@/constants/Type';
 import { router } from 'expo-router';
 import { useEffect } from 'react';
 import { Button, FlatList, StyleSheet } from 'react-native';
@@ -22,27 +22,6 @@ export default function TabOneScreen() {
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
   };
 
-  const renderModelItem = ({ item }: { item: DownloadedModel }) => (
-    <View style={styles.modelCard}>
-      <View style={styles.modelHeader}>
-        <Text style={styles.modelName} numberOfLines={2}>
-          {item.fileName}
-        </Text>
-        {item.format && (
-          <View style={styles.formatBadge}>
-            <Text style={styles.formatText}>{item.format.toUpperCase()}</Text>
-          </View>
-        )}
-      </View>
-      <Text style={styles.modelId} numberOfLines={3}>
-        {item.modelId}
-      </Text>
-      <View style={styles.modelFooter}>
-        <Text style={styles.modelSize}>{formatFileSize(item.size)}</Text>
-        <Text style={styles.modelStatus}>{item.status}</Text>
-      </View>
-    </View>
-  );
 
   if (isLocalModelLoading) {
     return (
@@ -65,9 +44,8 @@ export default function TabOneScreen() {
       {localModels.length > 0 ? (
         <FlatList
           data={localModels}
-          renderItem={renderModelItem}
+          renderItem={({ item }) => <ModelItem item={item} />}
           keyExtractor={(item) => item.id.toString()}
-          contentContainerStyle={styles.listContent}
         />
       ) : (
         <View style={styles.centered}>

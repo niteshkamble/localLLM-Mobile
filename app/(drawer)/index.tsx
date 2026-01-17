@@ -1,16 +1,16 @@
 import { Text, View } from '@/components/Themed';
-import { useModelStore } from '@/app/store/useModelStore';
-import { useEffect, useState } from 'react';
-import { 
-  StyleSheet, 
-  TextInput, 
-  TouchableOpacity, 
-  FlatList, 
-  KeyboardAvoidingView, 
-  Platform
-} from 'react-native';
+import { FontAwesome } from '@expo/vector-icons';
 import { router } from 'expo-router';
-import NoModelAlert from '@/components/NoModelAlert';
+import { useEffect, useState } from 'react';
+import {
+  FlatList,
+  KeyboardAvoidingView,
+  Platform,
+  StyleSheet,
+  TextInput,
+  TouchableOpacity
+} from 'react-native';
+import { useAppStore } from '../store/useAppStore';
 
 interface ChatMessage {
   id: string;
@@ -20,120 +20,58 @@ interface ChatMessage {
 }
 
 export default function ChatScreen() {
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [inputText, setInputText] = useState('');
-  const [showNoModelDialog, setShowNoModelDialog] = useState(false);
-  
-  const localModels = useModelStore((state) => state.localModels);
-  const getLocalModels = useModelStore((state) => state.getLocalModels);
-  const isLocalModelLoading = useModelStore((state) => state.isLocalModelLoading);
+  const selectedModel = useAppStore((state) => state.selectedModel);
+  console.log('selectedModel', selectedModel);
 
   useEffect(() => {
-    checkForModels();
+    useAppStore.getState().getSelectedModel();
   }, []);
 
-  const checkForModels = async () => {
-    await getLocalModels();
-    const models = useModelStore.getState().localModels;
-    
-    if (models.length === 0) {
-      setShowNoModelDialog(true);
-    }
-  };
+
 
   const handleSend = () => {
-    if (inputText.trim() === '') return;
-
-    // Add user message
-    const userMessage: ChatMessage = {
-      id: Date.now().toString(),
-      role: 'user',
-      content: inputText.trim(),
-      timestamp: new Date(),
-    };
-
-    setMessages((prev) => [...prev, userMessage]);
-    setInputText('');
-
-    // TODO: Send to LLM model and get response
-    // For now, simulate a response
-    setTimeout(() => {
-      const assistantMessage: ChatMessage = {
-        id: (Date.now() + 1).toString(),
-        role: 'assistant',
-        content: 'This is a placeholder response. LLM integration coming soon!',
-        timestamp: new Date(),
-      };
-      setMessages((prev) => [...prev, assistantMessage]);
-    }, 500);
   };
 
-  const handleNavigateToTabs = () => {
-    setShowNoModelDialog(false);
-    router.replace('/(tabs)');
-  };
-
-  const renderMessage = ({ item }: { item: ChatMessage }) => {
-    const isUser = item.role === 'user';
-    
-    return (
-      <View style={[styles.messageContainer, isUser ? styles.userMessage : styles.assistantMessage]}>
-        <View style={[styles.messageBubble, isUser ? styles.userBubble : styles.assistantBubble]}>
-          <Text style={[styles.messageText, isUser ? styles.userText : styles.assistantText]}>
-            {item.content}
-          </Text>
-          <Text style={[styles.timestamp, isUser ? styles.userTimestamp : styles.assistantTimestamp]}>
-            {item.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-          </Text>
-        </View>
-      </View>
-    );
-  };
-
-  if (isLocalModelLoading) {
-    return (
-      <View style={styles.container}>
-        <Text style={styles.loadingText}>Loading...</Text>
-      </View>
-    );
-  }
 
   return (
-    <KeyboardAvoidingView 
+    <KeyboardAvoidingView
       style={styles.container}
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
     >
-      <NoModelAlert
-        visible={showNoModelDialog}
-        onNavigate={handleNavigateToTabs}
-      />
       
       <FlatList
-        data={messages}
-        renderItem={renderMessage}
+        data={[]}
+        renderItem={() => {}}
         keyExtractor={(item) => item.id}
         contentContainerStyle={styles.messagesList}
-        inverted={false}
+        inverted={false} 
       />
 
-      <View style={styles.inputContainer}>
-        <TextInput
-          style={styles.input}
-          placeholder="Type your message..."
-          placeholderTextColor="#999"
-          value={inputText}
-          onChangeText={setInputText}
-          multiline
-          maxLength={1000}
-        />
-        <TouchableOpacity
-          style={[styles.sendButton, inputText.trim() === '' && styles.sendButtonDisabled]}
-          onPress={handleSend}
-          disabled={inputText.trim() === ''}
-        >
-          <Text style={styles.sendButtonText}>Send</Text>
-        </TouchableOpacity>
+      <View >
+        <Text style={styles.modelname}> Model: {selectedModel?.fileName || 'No model selected. Please select a model by clicking the refresh button.'}</Text>
+        <View style={styles.inputContainer}>
+          <TouchableOpacity onPress={() => { router.push('/modal') }} style={styles.refreshButton}>
+            <FontAwesome name="refresh" size={20} color="grey" />
+          </TouchableOpacity>
+          <TextInput
+            style={styles.input}
+            placeholder="Type your message..."
+            placeholderTextColor="#999"
+            value={inputText}
+            onChangeText={setInputText}
+            multiline
+            maxLength={1000}
+          />
+          <TouchableOpacity
+            style={[styles.sendButton, inputText.trim() === '' && styles.sendButtonDisabled]}
+            onPress={handleSend}
+            disabled={inputText.trim() === ''}
+          >
+            <Text style={styles.sendButtonText}>Send</Text>
+          </TouchableOpacity>
+        </View>
       </View>
     </KeyboardAvoidingView>
   );
@@ -206,9 +144,21 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     padding: 12,
     backgroundColor: '#fff',
-    borderTopWidth: 1,
-    borderTopColor: '#e0e0e0',
     alignItems: 'flex-end',
+  },
+  modelname: {
+    fontSize: 12,
+    color: 'grey',
+    alignSelf: 'center',
+    marginHorizontal: 12,
+  },
+  refreshButton: {
+    marginRight: 8,
+    padding: 10,
+    borderRadius: 20,
+    backgroundColor: '#f9f9f9',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   input: {
     flex: 1,

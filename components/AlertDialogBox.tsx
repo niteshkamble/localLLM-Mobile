@@ -11,7 +11,7 @@ import {
 interface AlertDialogBoxProps {
     visible: boolean;
     title: string;
-    progress: number; 
+    progress?: number; 
     onCancel: () => void;
     fileName?: string; 
 }
@@ -46,6 +46,7 @@ const AlertDialogBox: React.FC<AlertDialogBoxProps> = ({
                             color="#1976d2" 
                             style={styles.spinner}
                         />
+                        {progress && (
                         <View style={styles.progressBarContainer}>
                             <View style={styles.progressBarBackground}>
                                 <View 
@@ -57,6 +58,7 @@ const AlertDialogBox: React.FC<AlertDialogBoxProps> = ({
                             </View>
                             <Text style={styles.progressText}>{progress}%</Text>
                         </View>
+                        )}
                     </View>
                     
                     <TouchableOpacity

@@ -17,6 +17,11 @@ export async function initDatabase(): Promise<void> {
           downloadedAt TEXT NOT NULL,
           status TEXT NOT NULL DEFAULT 'completed'
         );
+        CREATE TABLE IF NOT EXISTS selected_model (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          modelId TEXT NOT NULL UNIQUE,
+          selectedAt TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+        );
       `);
     } catch (error) {
         console.error('Database initialization error:', error);
@@ -66,4 +71,34 @@ export async function getDownloadedModelById(modelId: string): Promise<Downloade
         [modelId]
     );
     return result || null;
+}
+
+
+export async function setSelectedModel(modelId: string): Promise<void> {
+    if (!db) await initDatabase();
+    // Delete all previous selections and insert new one
+    await db!.runAsync('DELETE FROM selected_model');
+    await db!.runAsync(
+        'INSERT INTO selected_model (modelId, selectedAt) VALUES (?, datetime("now"))',
+        [modelId]
+    );
+}
+
+export async function getSelectedModel(): Promise<DownloadedModel | null> {
+    if (!db) await initDatabase();
+    
+    const model = await db!.getFirstAsync<DownloadedModel>(
+        `SELECT dm.* 
+         FROM downloaded_models dm
+         INNER JOIN selected_model sm ON dm.modelId = sm.modelId
+         ORDER BY sm.selectedAt DESC
+         LIMIT 1`
+    );
+    
+    return model || null;
+}
+
+export async function clearSelectedModel(): Promise<void> {
+    if (!db) await initDatabase();
+    await db!.runAsync('DELETE FROM selected_model');
 }
