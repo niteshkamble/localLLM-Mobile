@@ -60,12 +60,12 @@ const downloadHFModel = async (
         const destinationFile = new File(modelsDirectory, ggufFileName);
 
         if (destinationFile.exists) {
-            throw new Error('File already exists');
+            throw new Error('File already exists.');
         }
 
         // Check if already aborted
         if (abortSignal?.aborted) {
-            throw new Error('Download aborted');
+            throw new Error('Download aborted.');
         }
 
         // Use legacy FileSystem API's createDownloadResumable for proper progress tracking
@@ -97,7 +97,7 @@ const downloadHFModel = async (
 
         // Check if aborted before starting download
         if (abortSignal?.aborted) {
-            throw new Error('Download aborted');
+            throw new Error('Download aborted.');
         }
 
         // Start download
@@ -113,16 +113,16 @@ const downloadHFModel = async (
                     console.error('Error deleting partial file:', e);
                 }
             }
-            throw new Error('Download aborted');
+            throw new Error('Download aborted.');
         }
 
         if (!result) {
-            throw new Error('Download failed - no result returned');
+            throw new Error('Download failed - no result returned.');
         }
 
         // Verify file was downloaded
         if (!destinationFile.exists) {
-            throw new Error('Downloaded file not found');
+            throw new Error('Downloaded file not found.');
         }
 
         // Final progress update
@@ -133,7 +133,7 @@ const downloadHFModel = async (
         return destinationFile.uri;
     } catch (error) {
         console.error('Error downloading HF model:', error);
-        throw error instanceof Error ? error : new Error('Failed to download model');
+        throw error instanceof Error ? error : new Error('Failed to download model.');
     }
 }
 

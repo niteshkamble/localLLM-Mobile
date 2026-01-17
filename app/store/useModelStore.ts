@@ -96,7 +96,7 @@ export const useModelStore = create<ModelStoreState>((set) => ({
             const downloadedFile = new File(filePath);
             const fileInfo = await downloadedFile.info();
             if (!fileInfo.exists || fileInfo.size === undefined || fileInfo.size === null) {
-                throw new Error('Downloaded file info not available');
+                throw new Error('Downloaded file info not available.');
             }
             
             // Create model ID from repo path and filename

@@ -3,7 +3,7 @@ import HFModelHeader from '@/components/Models/HFModelHeader';
 import HFModelListItem from '@/components/Models/HFModelListItem';
 import { Text, View } from '@/components/Themed';
 import { useEffect } from 'react';
-import { FlatList, StyleSheet } from 'react-native';
+import { Alert, FlatList, StyleSheet } from 'react-native';
 import { useModelStore } from '../store/useModelStore';
 
 export default function TabTwoScreen() {
@@ -26,6 +26,7 @@ export default function TabTwoScreen() {
     try {
       await downloadHFModel(repoPath, ggufFileName);
     } catch (error) {
+      Alert.alert('Download error', error instanceof Error ? error.message  : 'Failed to download Hugging Face model.');
       console.error('Download error:', error);
     }
   };
