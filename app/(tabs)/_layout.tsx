@@ -30,6 +30,7 @@ export default function TabLayout() {
         name="index"
         options={{
           title: 'Downloaded Models',
+          headerShown: false,
           tabBarLabel: 'Models',
           tabBarIcon: ({ color }) => <TabBarIcon name="download" color={color} />,
           headerRight: () => (
@@ -52,6 +53,7 @@ export default function TabLayout() {
         name="two"
         options={{
           title: 'Available to Download HF Models',
+          headerShown: false,
           tabBarLabel: 'HF Models',
           tabBarIcon: ({ color }) => <TabBarIcon name="list-alt" color={color} />,
         }}
