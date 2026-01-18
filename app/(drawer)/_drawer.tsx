@@ -1,8 +1,9 @@
-import { DrawerContentScrollView, DrawerItem } from '@react-navigation/drawer';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
-import { useRouter } from 'expo-router';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import type { DrawerContentComponentProps } from '@react-navigation/drawer';
+import { DrawerContentScrollView, DrawerItem } from '@react-navigation/drawer';
+import { useRouter } from 'expo-router';
+import { Alert, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { useChatStore } from '../store/useChatStore';
 
 interface ChatHistory {
   id: string;
@@ -35,6 +36,7 @@ const mockChatHistory: ChatHistory[] = [
 
 export default function CustomDrawerContent(props: DrawerContentComponentProps) {
   const router = useRouter();
+  const clearMessages = useChatStore((state) => state.clearMessages);
 
   const formatTime = (date: Date): string => {
     const now = new Date();
@@ -52,13 +54,37 @@ export default function CustomDrawerContent(props: DrawerContentComponentProps) 
   };
 
   const handleChatSelect = (chatId: string) => {
-    // TODO: Load chat history for this chat
-    props.navigation.navigate('index');
+    props.navigation.closeDrawer();
+    setTimeout(() => props.navigation.navigate('index'), 300);
   };
 
   const handleNewChat = () => {
-    // TODO: Create new chat
-    props.navigation.navigate('index');
+    props.navigation.closeDrawer();
+    setTimeout(() => props.navigation.navigate('index'), 300);
+  };
+
+  const clearChatHistory = () => {
+    props.navigation.closeDrawer();
+    setTimeout(() => {
+      Alert.alert(
+        'Clear Chat History',
+        'Are you sure you want to clear all messages? This action cannot be undone.',
+        [
+          {
+            text: 'Cancel',
+            style: 'cancel',
+          },
+          {
+            text: 'Clear',
+            style: 'destructive',
+            onPress: () => {
+              clearMessages();
+              Alert.alert('Chat history cleared.');
+            },
+          },
+        ]
+      );
+    }, 300);
   };
 
   return (
@@ -75,6 +101,7 @@ export default function CustomDrawerContent(props: DrawerContentComponentProps) 
       </View>
 
       <View style={styles.chatList}>
+        <Text style={styles.notFunctionalText}>Not fuctional yet</Text>
         {mockChatHistory.map((chat) => (
           <TouchableOpacity
             key={chat.id}
@@ -103,7 +130,17 @@ export default function CustomDrawerContent(props: DrawerContentComponentProps) 
           icon={({ color, size }) => (
             <FontAwesome name="download" size={size} color={color} />
           )}
-          onPress={() => router.push('/(tabs)')}
+          onPress={() => {
+            props.navigation.closeDrawer();
+            setTimeout(() => router.push('/(tabs)'), 300);
+          }}
+        />
+        <DrawerItem
+          label="Clear Chat History"
+          icon={({ color, size }) => (
+            <FontAwesome name="trash" size={size} color={color} />
+          )}
+          onPress={() => clearChatHistory()}
         />
       </View>
     </DrawerContentScrollView>
@@ -148,7 +185,8 @@ const styles = StyleSheet.create({
     padding: 12,
     marginBottom: 8,
     borderRadius: 8,
-    backgroundColor: '#f9f9f9',
+    backgroundColor: 'rgba(0, 0, 0, 0.05)',
+    opacity: 0.5,
   },
   chatIcon: {
     width: 40,
@@ -181,5 +219,11 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: '#e0e0e0',
     paddingTop: 8,
+  },
+  notFunctionalText: {
+    fontSize: 14,
+    color: '#999',
+    textAlign: 'center',
+    marginBottom: 12,
   },
 });
