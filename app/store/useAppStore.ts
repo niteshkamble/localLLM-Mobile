@@ -67,7 +67,15 @@ export const useAppStore = create<AppStoreState>((set, get) => ({
         try {
             console.log('Initializing new Llama context with model:', modelPath);
             const context = await initLlama({
-                model: modelPath
+                model: modelPath,
+                use_mlock: true,         // Prevent model from being swapped out of memory
+                n_ctx: 2048,             // Context window size (reduce to 1024 or 512 if still crashing)
+                n_threads: 4,            // Number of threads (adjust based on device)
+                n_gpu_layers: 0,         // Start with 0 (CPU only) - increase to 1-4 once stable
+                use_mmap: true,          // Use memory-mapped file for efficiency
+                embedding: false,        // Disable for chat mode (only needed for embeddings)
+                flash_attn: false,       // Disable flash attention for stability
+                n_batch: 512,            // Batch size for prompt processing
             }, (progress) => {
                 set({ initProgress: progress });
                 console.log('Llama initialization progress:', progress);
