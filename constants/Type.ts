@@ -64,3 +64,16 @@ export type HuggingfaceModelAPIResponse = {
     status: number;
     statusText: string;
 }
+
+export type ChatMessage = {
+    id: string;
+    role: 'user' | 'assistant';
+    content: string;
+    timestamp: Date;
+    metadata?: {
+        speed?: number;        // tokens per second
+        tokenCount?: number;   // total tokens generated
+        model?: string;        // model name used
+    };
+}
+
