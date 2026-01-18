@@ -23,6 +23,8 @@ const AlertDialogBox: React.FC<AlertDialogBoxProps> = ({
     onCancel,
     fileName,
 }) => {
+    const showProgress = typeof progress === 'number' && progress > 0;
+    
     return (
         <Modal
             visible={visible}
@@ -34,11 +36,11 @@ const AlertDialogBox: React.FC<AlertDialogBoxProps> = ({
                 <View style={styles.dialog}>
                     <Text style={styles.title}>{title}</Text>
                     
-                    {fileName && (
+                    {fileName ? (
                         <Text style={styles.fileName} numberOfLines={1} ellipsizeMode="middle">
                             {fileName}
                         </Text>
-                    )}
+                    ) : null}
                     
                     <View style={styles.progressContainer}>
                         <ActivityIndicator 
@@ -46,7 +48,7 @@ const AlertDialogBox: React.FC<AlertDialogBoxProps> = ({
                             color="#1976d2" 
                             style={styles.spinner}
                         />
-                        {progress && (
+                        {showProgress ? (
                         <View style={styles.progressBarContainer}>
                             <View style={styles.progressBarBackground}>
                                 <View 
@@ -58,7 +60,7 @@ const AlertDialogBox: React.FC<AlertDialogBoxProps> = ({
                             </View>
                             <Text style={styles.progressText}>{progress}%</Text>
                         </View>
-                        )}
+                        ) : null}
                     </View>
                     
                     <TouchableOpacity
@@ -159,4 +161,4 @@ const styles = StyleSheet.create({
     },
 });
 
-export default AlertDialogBox;
+export default React.memo(AlertDialogBox);
