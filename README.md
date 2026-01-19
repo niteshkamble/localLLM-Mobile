@@ -22,7 +22,7 @@ Models Screen | Chat Screen
 
 ### Video Demo
 
-[Watch Demo Video](example/demo_video.mp4)
+<video src="example/demo_video.mp4" width="300" controls></video>
 
 ## Prerequisites
 
