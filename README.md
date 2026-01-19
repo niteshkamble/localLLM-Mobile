@@ -14,15 +14,15 @@ Tested on iOS device.
 
 ## Demo
 
+### Screenshots
+
+Models Screen | Chat Screen
+:---:|:---:
+![Models Screen](example/image1.png) | ![Chat Screen](example/image2.png)
+
 ### Video Demo
 
 [Watch Demo Video](example/demo_video.mp4)
-
-### Screenshots
-
-<img src="example/image1.png" width="300" alt="Models Screen - Browse and download Llama models from HuggingFace">
-
-<img src="example/image2.png" width="300" alt="Chat Screen - Chat with AI models locally on device">
 
 ## Prerequisites
 
